@@ -125,44 +125,28 @@ Ask: "What language do you prefer for your digest?"
 
 ### Step 5: API Keys
 
-Create the .env file with placeholders based on what the user needs:
+**If the user chose "stdout" or "right here" delivery:** No API keys needed at all!
+All content is fetched centrally. Skip to Step 6.
+
+**If the user chose Telegram or Email delivery:**
+Create the .env file with only the delivery key they need:
 
 ```bash
 mkdir -p ~/.follow-builders
 cat > ~/.follow-builders/.env << 'ENVEOF'
-# Supadata API key (for YouTube transcripts)
-# Get yours at: https://supadata.ai — sign up, go to dashboard, copy key
-SUPADATA_API_KEY=paste_your_key_here
-
 # Telegram bot token (only if using Telegram delivery)
-# Get yours from @BotFather on Telegram
 # TELEGRAM_BOT_TOKEN=paste_your_token_here
 
 # Resend API key (only if using email delivery)
-# Get yours at: https://resend.com — sign up, go to API Keys
 # RESEND_API_KEY=paste_your_key_here
 ENVEOF
 ```
 
-Uncomment the lines the user needs based on their chosen delivery method.
+Uncomment only the line they need. Open the file for them to paste the key.
 
-Tell the user:
-
-"I need one API key to fetch YouTube podcast transcripts. X/Twitter posts are
-fetched for free — no API key needed.
-
-**Supadata (required)**
-- Go to https://supadata.ai
-- Click 'Get Started' or 'Sign Up'
-- Create an account (you can use Google sign-in)
-- Once logged in, go to your Dashboard
-- You'll see your API key on the main page — copy it
-- Free tier gives 200 credits/month — more than enough for daily digests"
-
-If they chose Telegram or email delivery, also remind them to add that key
-(the instructions were already given in Step 3).
-
-Open the .env file for the user to paste their keys. Wait for them to confirm.
+Tell the user: "All podcast and X/Twitter content is fetched for you automatically
+from a central feed — no API keys needed for that. You only need a key for
+[Telegram/email] delivery."
 
 ### Step 6: Show Sources
 
@@ -280,43 +264,26 @@ Read `~/.follow-builders/config.json` for user preferences.
 
 ### Step 2: Fetch Content
 
-Run the fetcher script (2>/dev/null suppresses any debug output so you only get clean JSON):
+Fetch the central feed — a pre-built JSON file that's updated every 6 hours
+with the latest content from all sources. Users don't need any API keys.
+
 ```bash
-cd ${CLAUDE_SKILL_DIR}/scripts && node fetch-content.js 2>/dev/null
+curl -sf "https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed.json" -o /tmp/fb-feed.json
 ```
 
-For weekly mode, use a longer lookback:
-```bash
-cd ${CLAUDE_SKILL_DIR}/scripts && node fetch-content.js --lookback-hours 168 2>/dev/null
-```
+If the fetch fails (offline, etc.), tell the user: "Could not reach the content
+feed. Please check your internet connection and try again."
 
-The script outputs a single JSON object to stdout. Parse that JSON.
-
-**FIRST RUN behavior:** On first run (`isFirstRun: true` in the JSON), the script
-returns NO podcast transcripts. Instead, it returns a `firstRunCandidates` array
-with video titles and metadata. You must:
-1. Read the `firstRunCandidates` list (titles + dates)
-2. Pick the ONE video that is most relevant to AI/technology using your judgment
-   (read the title and description — skip episodes about salary negotiation,
-   personal stories, lifestyle, etc.)
-3. Fetch its transcript by running:
-```bash
-cd ${CLAUDE_SKILL_DIR}/scripts && node fetch-content.js --video-id <videoId> 2>/dev/null
-```
-4. Use that single transcript for the welcome digest
-
-This saves tokens by only fetching 1 transcript instead of 5+.
+Read the JSON from `/tmp/fb-feed.json`. It contains:
+- `podcasts`: array of podcast episodes with full transcripts
+- `x`: array of builders with their recent tweets (text, links, engagement)
+- `stats`: counts of episodes and tweets
+- `errors`: any non-fatal issues (IGNORE these)
 
 **IMPORTANT — Error Handling:**
-- The JSON will have `"status": "ok"` even if some individual sources failed.
-  This is normal. Some X accounts or podcasts may temporarily fail — that's fine.
 - If the JSON has an `"errors"` array, those are non-fatal warnings. IGNORE THEM.
-  Do NOT stop, retry, or report errors to the user. Just use whatever content
-  was successfully fetched.
-- Only stop if the script exits with a non-zero code (no JSON output at all).
-  In that case, tell the user to check their API key.
-- NEVER try to "fix" errors by re-running the script or investigating individual
-  failures. Just proceed with the content you have.
+- Just use whatever content is in the `podcasts` and `x` arrays.
+- NEVER try to fetch content yourself from X or YouTube. The feed has everything.
 
 ### Step 3: Check for Content
 
@@ -375,46 +342,46 @@ Process each episode one at a time:
 **NEVER** guess which podcast a transcript belongs to by reading the transcript
 content. Always use the `name` field from the JSON object.
 
-### Step 4b: Fetch and Remix X/Twitter Content
+### Step 4b: Remix X/Twitter Content
 
-The fetcher script does NOT fetch tweets — you do this yourself using web search.
-This avoids all X API issues: no login needed, no API key, no risk of account bans.
-
-The JSON output has an `xAccountsToSearch` array with the builders to search for:
+The feed's `x` array contains builders with their recent tweets already fetched:
 ```json
-{ "name": "Aaron Levie", "handle": "levie" }
+{
+  "name": "Aaron Levie",
+  "handle": "levie",
+  "bio": "ceo @box - your business lives in content. unleash it with AI",
+  "tweets": [
+    {
+      "text": "The actual tweet text...",
+      "url": "https://x.com/levie/status/123456",
+      "likes": 200,
+      "createdAt": "2026-03-15T..."
+    }
+  ]
+}
 ```
 
-For each builder, use web search to find their recent posts:
-1. Search for: `from:{handle} site:x.com` (e.g. `from:levie site:x.com`)
-2. Look at the search results for recent tweets (last 24 hours for daily, last 7 days for weekly)
-3. If you find substantive posts, summarize them using the summarize-tweets prompt
-4. Include the direct link to each tweet from the search results
-5. If no recent posts found, skip this builder
+Process each builder one at a time:
+1. Read ONE builder object from the `x` array
+2. Use their `bio` field to describe their role accurately (e.g. "Box CEO Aaron Levie")
+3. Summarize their `tweets` using the summarize-tweets prompt
+4. Use the `url` from EACH tweet — every tweet must have its link
+5. Move to the next builder. Repeat.
 
-**ABSOLUTE RULES — VIOLATION OF THESE WILL PRODUCE A BAD DIGEST:**
+**ABSOLUTE RULES:**
 
-1. **NEVER invent, fabricate, or guess tweet content.** If web search returns no
-   results for a builder, skip them entirely. Do NOT make up what you think they
-   might have said. Do NOT write "His silence on X is deafening" or speculate
-   about what they're working on. Only include content you actually found via search.
+1. **NEVER invent, fabricate, or guess tweet content.** Only include tweets
+   that are in the feed JSON. If a builder has no tweets in the feed, skip them.
 
-2. **Every tweet you include MUST have a real URL** from the search results
-   (e.g. https://x.com/levie/status/1234567890). If you don't have a URL,
-   you don't have a real tweet — do not include it.
+2. **Every tweet MUST have its URL** from the `url` field in the JSON.
+   No URL = do not include.
 
-3. **Use accurate, current information about each person.** Do NOT guess their
-   job title. If you're unsure of someone's current role, just use their name
-   without a title. Common mistakes to avoid:
-   - Karpathy left Tesla in 2022 and left OpenAI in 2024. He runs Eureka Labs.
-   - Do NOT call anyone by an outdated role.
+3. **Use the `bio` field for the author's current role.** Do NOT guess job titles.
+   If the bio says "ceo @box" write "Box CEO Aaron Levie."
+   If the bio is empty, just use their name.
 
-4. **Do NOT visit x.com directly** — only use web search results.
-5. **Do NOT log into X or use any X API** — search results are sufficient.
-6. Process builders in batches if needed (you don't have to search all 32 at once).
-7. It's OK if many builders have no recent results — just skip them.
-   A digest with 3 real tweets is better than one with 15 fabricated ones.
-8. If web search is unavailable, skip the X section entirely and deliver podcasts only.
+4. **Do NOT visit x.com, search the web, or call any API for tweets.**
+   Everything you need is already in the feed JSON.
 
 Then assemble the full digest using the digest-intro prompt.
 

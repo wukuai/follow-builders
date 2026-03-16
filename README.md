@@ -26,9 +26,10 @@ WhatsApp, etc.) with:
 The agent will ask you:
 - How often you want your digest (daily or weekly) and what time
 - What language you prefer
-- Then guide you through getting one free API key (takes ~1 minute)
+- How you want it delivered (Telegram, email, or in-chat)
 
-That's it. Your first digest arrives immediately after setup.
+No API keys needed — all content is fetched centrally.
+Your first digest arrives immediately after setup.
 
 ## Changing Settings
 
@@ -93,29 +94,28 @@ cd ~/.claude/skills/follow-builders/scripts && npm install
 
 ## Requirements
 
-- Node.js (v18+)
-- Supadata API key (free tier — [sign up](https://supadata.ai))
+- An AI agent (OpenClaw, Claude Code, or similar)
+- Internet connection (to fetch the central feed)
 
-That's it. X/Twitter posts are fetched for free using Rettiwt-API in guest mode —
-no API key, no login, no risk to your account.
+That's it. No API keys needed. All content (YouTube transcripts + X/Twitter posts)
+is fetched centrally and updated every 6 hours.
 
 ## How It Works
 
-1. A scheduled cron job triggers the skill at your chosen time
-2. A Node.js script fetches new content:
-   - YouTube podcast transcripts via Supadata API
-   - X/Twitter posts via Rettiwt-API (guest mode — no login needed)
-3. The AI agent remixes the raw content into a digestible summary
-4. The digest is delivered to your messaging app
+1. A central feed is updated every 6 hours with the latest content from all sources
+   (YouTube transcripts via Supadata, X/Twitter via official API)
+2. Your agent fetches the feed — one HTTP request, no API keys
+3. Your agent remixes the raw content into a digestible summary using your preferences
+4. The digest is delivered to your messaging app (or shown in-chat)
 
 See [examples/sample-digest.md](examples/sample-digest.md) for what the output looks like.
 
 ## Privacy
 
-- Your API key is stored locally in `~/.follow-builders/.env` — only sent to Supadata
-  for YouTube transcripts. X/Twitter data is fetched without any API key.
+- No API keys are sent anywhere — all content is fetched centrally
+- If you use Telegram/email delivery, those keys are stored locally in `~/.follow-builders/.env`
 - The skill only reads public content (public YouTube videos, public X posts)
-- Your configuration and reading history stay on your machine
+- Your configuration, preferences, and reading history stay on your machine
 
 ## License
 
