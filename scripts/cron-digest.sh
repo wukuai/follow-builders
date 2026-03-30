@@ -5,9 +5,12 @@
 
 set -e
 
+# Ensure PATH includes common tool locations (crontab has a minimal PATH)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-NODE="/opt/homebrew/bin/node"
-CLAUDE="/Users/wukuai/.local/bin/claude"
+NODE="$(command -v node)"
+CLAUDE="$(command -v claude)"
 CONFIG="$HOME/.follow-builders/config.json"
 PROMPT_DIR="$SCRIPT_DIR/../prompts"
 USER_PROMPT_DIR="$HOME/.follow-builders/prompts"
