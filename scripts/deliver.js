@@ -25,6 +25,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { config as loadEnv } from 'dotenv';
+import { marked } from 'marked';
 
 // -- Constants ---------------------------------------------------------------
 
@@ -122,11 +123,34 @@ async function sendTelegram(text, botToken, chatId) {
   }
 }
 
+// -- Markdown to HTML --------------------------------------------------------
+
+function renderMarkdownToHtml(text) {
+  const body = marked.parse(text);
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif;max-width:720px;margin:0 auto;padding:24px;line-height:1.75;color:#1d1d1f;background:#fff;font-size:15px}
+h1{font-size:24px;font-weight:700;margin:32px 0 16px}
+h2{font-size:20px;font-weight:600;margin:28px 0 12px;border-bottom:2px solid #0071e3;padding-bottom:8px}
+h3{font-size:17px;font-weight:600;margin:24px 0 8px}
+p{margin:12px 0}
+a{color:#0071e3;text-decoration:none}
+a:hover{text-decoration:underline}
+ul,ol{margin:12px 0;padding-left:24px}
+li{margin:6px 0}
+blockquote{border-left:3px solid #0071e3;padding:8px 16px;margin:16px 0;background:#f5f5f7;border-radius:0 8px 8px 0;color:#424245}
+strong{font-weight:600}
+hr{border:none;border-top:1px solid #e5e5e7;margin:24px 0}
+</style></head><body>${body}</body></html>`;
+}
+
 // -- Email Delivery (Resend) -------------------------------------------------
 
 // Sends the digest via Resend's email API.
 // The user provides their own Resend API key and email address.
 async function sendEmail(text, apiKey, toEmail) {
+  const html = renderMarkdownToHtml(text);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -139,6 +163,7 @@ async function sendEmail(text, apiKey, toEmail) {
       subject: `AI Builders Digest — ${new Date().toLocaleDateString('en-US', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       })}`,
+      html: html,
       text: text
     })
   });

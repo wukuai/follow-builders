@@ -393,6 +393,17 @@ Read `config.language` from the JSON:
 
 **Follow this setting exactly. Do NOT mix languages.**
 
+### Step 5.5: Archive the digest
+
+Save the digest for local web browsing history:
+```bash
+echo '<your digest text>' > /tmp/fb-digest.txt
+cd ${CLAUDE_SKILL_DIR}/scripts && node save-digest.js --file /tmp/fb-digest.txt 2>/dev/null
+```
+
+This archives the digest locally so it can be browsed at http://localhost:3456.
+The digest is saved to `~/.follow-builders/digests/YYYY-MM-DD.json`.
+
 ### Step 6: Deliver
 
 Read `config.delivery.method` from the JSON:
@@ -464,3 +475,20 @@ When the user invokes `/ai` or asks for their digest manually:
 1. Skip cron check — run the digest workflow immediately
 2. Use the same fetch → remix → deliver flow as the cron run
 3. Tell the user you're fetching fresh content (it takes a minute or two)
+
+---
+
+## Web Browsing — Local Digest Reader
+
+Users can browse current and past digests in a local web interface:
+
+```bash
+cd ${CLAUDE_SKILL_DIR}/scripts && node serve.js
+```
+
+Then open http://localhost:3456 in a browser.
+
+The web reader shows all archived digests with a date-based sidebar for navigation.
+Digests are automatically archived each time the skill runs (via save-digest.js in Step 5.5).
+
+To change the port: `PORT=8080 node serve.js`
