@@ -3,6 +3,13 @@
 # Runs prepare-digest.js, then uses Claude CLI to remix + translate,
 # then saves and delivers the result.
 
+# Cron runs with a minimal environment — source the login profile so that
+# Claude CLI can access its auth tokens (stored in macOS Keychain).
+# Must happen BEFORE set -e since profile scripts may have benign errors.
+source "$HOME/.bash_profile" 2>/dev/null
+source "$HOME/.zprofile" 2>/dev/null
+source "$HOME/.zshrc" 2>/dev/null
+
 set -e
 
 # Ensure PATH includes common tool locations (crontab has a minimal PATH)
